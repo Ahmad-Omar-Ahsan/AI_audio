@@ -1,6 +1,7 @@
 from tensorflow.keras import Model
-from tensorflow.keras.layers import Input, Conv2D, ReLU, BatchNormalization, Flatten, Dense
+from tensorflow.keras.layers import Input, Conv2D, ReLU, BatchNormalization, Flatten, Dense, Reshape,Conv2DTranspose, Activation
 from tensorflow.keras import backend as K
+import numpy as np
 
 
 class Autoencoder(object):
@@ -24,23 +25,90 @@ class Autoencoder(object):
 
         self._build()
 
-    def _build(self):
-        self._build_encoder()
-        #self._build_decoder()
-        #self._build_autoencoder()
 
     def summary(self):
         self.encoder.summary()
+        self.decoder.summary()
+
+
+    def _build(self):
+        self._build_encoder()
+        self._build_decoder()
+        #self._build_autoencoder()
+
+
+    def _build_decoder(self):
+        decoder_input = self._add_decoder_input()
+        dense_layer = self._add_dense_layer(decoder_input)
+        reshape_layer = self._add_reshape_layer(dense_layer)
+        conv_transpose_layers = self._add_conv_transpose_layers(reshape_layer)
+        decoder_output = self._add_decoder_output(conv_transpose_layers)
+        self.decoder = Model(decoder_input, decoder_output, name='decoder')
+
     
+    def _add_decoder_input(self):
+        return Input(shape=self.latent_space_dim, name='decoder_input')
+
+    
+    def _add_dense_layer(self, decoder_input):
+        num_neurons = np.prod(self._shape_before_bottleneck)
+        dense_layer = Dense(num_neurons, name='decoder_dense')(decoder_input)
+        return dense_layer
+
+
+    def _add_reshape_layer(self, dense_layer):
+        return Reshape(self._shape_before_bottleneck)(dense_layer)
+
+
+    def _add_conv_transpose_layers(self, x):
+        """ 
+        Add conv trasnpose blocks
+        """
+        # loop through all the conv layers in reverse order and stop  at the first layer
+        for layer_index in reversed(range(1, self._num_conv_layers)):
+            x = self._add_conv_transpose_layer(x, layer_index)
+        return x
+
+
+    def _add_conv_transpose_layer(self, x, layer_index):
+        layer_number = self._num_conv_layers - layer_index
+        conv_transpose_layer = Conv2DTranspose(
+            filters = self.conv_filters[layer_index],
+            kernel_size = self.conv_kernels[layer_index],
+            strides=self.conv_strides[layer_index],
+            padding='same',
+            name = f'decoder_conv_traspose_layer_{layer_number}'
+        )
+        x = conv_transpose_layer(x)
+        x = ReLU(name = f'decoder_relu_{layer_number}')(x)
+        x = BatchNormalization(name = f"decoder_bn_{layer_number}")(x)
+        return x
+
+
+    def _add_decoder_output(self, x):
+        conv_transpose_layer = Conv2DTranspose(
+            filters = 1, # [24, 24, 1]
+            kernel_size = self.conv_kernels[0],
+            strides=self.conv_strides[0],
+            padding = 'same',
+            name = f'decoder_conv_traspose_layer_{self._num_conv_layers}'
+        )
+        x = conv_transpose_layer(x)
+        output_layer = Activation('sigmoid', name = 'sigmoid_layer')(x)
+        return output_layer
+
+
     def _build_encoder(self):
         encoder_input = self._add_encoder_input()
         conv_layers = self._add_conv_layers(encoder_input)
         bottleneck = self._add_bottleneck(conv_layers)
         self.encoder = Model(encoder_input, bottleneck, name='encoder')
 
+
     def _add_encoder_input(self):
         return Input(shape=self.input_shape, name='encoder_input')
     
+
     def _add_conv_layers(self, enconder_input):
         """
         Creates all convolutional blocks in encoder
@@ -49,6 +117,7 @@ class Autoencoder(object):
         for layer_index in range(self._num_conv_layers):
             x = self._add_conv_layer(layer_index, x)
         return x
+
 
     def _add_conv_layer(self, layer_index, x):
         """
@@ -68,6 +137,7 @@ class Autoencoder(object):
         x = BatchNormalization(name=f'encoder_bn_{layer_number}')(x)
         return x
 
+
     def _add_bottleneck(self, x):
         """
         Flatten data and add bottleneck (Dense layer)
@@ -78,10 +148,6 @@ class Autoencoder(object):
         return x
     
 
-
-
-
-        
 if __name__ =="__main__":
     autoencoder = Autoencoder(
         input_shape=(28,28,1),
