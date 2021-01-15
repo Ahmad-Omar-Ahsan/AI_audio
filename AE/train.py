@@ -33,3 +33,6 @@ def train(x_train, learning_rate, batch_size, epochs):
 if __name__=='__main__':
     x_train, y_train, x_test, y_test = load_mnist()
     autoencoder = train(x_train[:500], LEARNING_RATE, BATCH_SIZE, EPOCHS)
+    autoencoder.save("model")
+    autoencoder2 = Autoencoder.load("model")
+    autoencoder2.summary()

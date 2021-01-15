@@ -4,6 +4,8 @@ from tensorflow.keras import backend as K
 import numpy as np
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import MeanSquaredError
+import os
+import pickle
 
 
 class Autoencoder(object):
@@ -43,6 +45,48 @@ class Autoencoder(object):
 
     def train(self, x_train, batch_size, num_epochs):
         self.model.fit(x_train, x_train, batch_size=batch_size,epochs=num_epochs,shuffle=True)
+
+
+    def load_weights(self, weights_path):
+        self.model.load_weights(weights_path)
+
+    @classmethod
+    def load(cls, save_folder="."):
+        hyper_parameter_path = os.path.join(save_folder, "hyper_parameters.pkl")
+        with open(hyper_parameter_path, "rb") as f:
+            hyper_parameters = pickle.load(f)  
+        autoencoder = Autoencoder(*hyper_parameters)
+        weights_path = os.path.join(save_folder, "weights.h5")
+        autoencoder.load_weights(weights_path)
+        return autoencoder  
+    
+    def save(self, save_folder="."):
+        self._create_folder(save_folder)
+        self._save_hyperparameters(save_folder)
+        self._save_weights(save_folder)
+
+
+    def _create_folder(self, folder):
+        if not os.path.exists(folder):
+            os.mkdir(folder)
+
+
+    def _save_hyperparameters(self, save_folder):
+        hyper_parameters = [
+            self.input_shape,
+            self.conv_filters, 
+            self.conv_kernels,
+            self.conv_strides,
+            self.latent_space_dim
+        ]
+        save_path = os.path.join(save_folder, "hyper_parameters.pkl")
+        with open(save_path, "wb") as f:
+            pickle.dump(hyper_parameters, f)
+
+
+    def _save_weights(self, save_folder):
+        save_path = os.path.join(save_folder, "weights.h5")
+        self.model.save_weights(save_path)
 
 
     def _build(self):
