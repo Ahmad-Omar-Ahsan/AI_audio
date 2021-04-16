@@ -1,4 +1,0 @@
-__pycache__
-*.sh
-model/*.pkl
-model/*.h5

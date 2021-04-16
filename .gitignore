@@ -1,0 +1,11 @@
+__pycache__
+*.sh
+model/*.pkl
+model/*.h5
+*.idea
+*.xml
+*.iml
+Sound_generation/
+*.idea
+*.wav
+*.ipynb_checkpoints
